@@ -17,12 +17,12 @@ async function main() {
 
   await prisma.clubUser.upsert({
     where: { clubId_email: { clubId: club.id, email: 'admin@rotary.local' } },
-    update: { password: passwordHash },
+    update: { password: passwordHash, role: 'super_admin' },
     create: {
       clubId: club.id,
       email: 'admin@rotary.local',
       password: passwordHash,
-      role: 'admin'
+      role: 'super_admin'
     }
   });
 
