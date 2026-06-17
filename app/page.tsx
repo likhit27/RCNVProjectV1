@@ -9,7 +9,7 @@ export default function Home() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#F7A81B] mb-2">Rotary Club Platform</p>
           <h1 className="text-4xl font-bold">RCNV</h1>
-          <p className="mt-2 text-white/60 text-sm">Rotary Navi Mumbai — Club Management</p>
+          <p className="mt-2 text-white/60 text-sm">Rotary Club Of Nagpur Vision — Club Management</p>
         </div>
 
         <div className="grid gap-3">

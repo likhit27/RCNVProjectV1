@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireClubSession } from '@/lib/apiAuth';
-import { createMember } from '@/lib/db';
+import { upsertMember } from '@/lib/db';
 
 // Parse a date string leniently (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, Excel serial)
 function parseDate(val: unknown): Date | null {
@@ -43,7 +43,7 @@ async function processRows(rows: Record<string, unknown>[], clubId: string) {
       if (c2) children.push({ name: c2 });
       if (c3) children.push({ name: c3 });
 
-      await createMember(clubId, {
+      await upsertMember(clubId, {
         name,
         rotaryId: col(row, 'Rotary ID', 'RotaryID') || null,
         email: col(row, 'MEMBER E -Mail', 'Member E-Mail', 'Email', 'MEMBER E-Mail') || null,

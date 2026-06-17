@@ -80,6 +80,33 @@ export async function createMember(clubId: string, data: MemberInput) {
   });
 }
 
+export async function upsertMember(clubId: string, data: MemberInput) {
+  const rows = childRows(data.children);
+  const fields = memberFields(data);
+  // Try to find existing member by rotaryId or email within this club
+  const existing = await prisma.member.findFirst({
+    where: {
+      clubId,
+      OR: [
+        ...(data.rotaryId ? [{ rotaryId: data.rotaryId }] : []),
+        ...(data.email ? [{ email: data.email }] : []),
+      ].filter(Boolean)
+    }
+  });
+  if (existing) {
+    await prisma.child.deleteMany({ where: { memberId: existing.id } });
+    return prisma.member.update({
+      where: { id: existing.id },
+      data: { ...fields, children: rows?.length ? { create: rows } : undefined },
+      include: { children: true }
+    });
+  }
+  return prisma.member.create({
+    data: { ...fields, clubId, children: rows?.length ? { create: rows } : undefined },
+    include: { children: true }
+  });
+}
+
 export async function updateMember(id: string, data: MemberInput) {
   const rows = childRows(data.children);
   await prisma.child.deleteMany({ where: { memberId: id } });

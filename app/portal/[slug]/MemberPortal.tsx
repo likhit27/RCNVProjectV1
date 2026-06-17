@@ -19,7 +19,8 @@ type Project = { id: string; title: string; avenue: string; description?: string
 type Due = { id: string; amount: string | number; paid: boolean | null; dueDate?: string | null };
 type Club = { id: string; name: string; slug: string };
 type CurrentUser = { id: string; email: string; role: string | null; memberId: string | null; member: { id: string; name: string } | null };
-type Tab = 'dashboard' | 'directory' | 'projects' | 'news' | 'birthdays' | 'promotions' | 'dues';
+type Tab = 'dashboard' | 'directory' | 'projects' | 'news' | 'birthdays' | 'promotions' | 'dues' | 'profile';
+type ProfileTab = 'basic' | 'family' | 'business';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -30,6 +31,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'birthdays', label: 'Birthdays', icon: '🎂' },
   { id: 'promotions', label: 'Promotions', icon: '🏢' },
   { id: 'dues', label: 'My Dues', icon: '💰' },
+  { id: 'profile', label: 'My Profile', icon: '✏️' },
 ];
 
 function fmt(iso: string | null | undefined) {
@@ -39,6 +41,10 @@ function fmt(iso: string | null | undefined) {
 function fmtMD(iso: string | null | undefined) {
   if (!iso) return null;
   const d = new Date(iso); return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+function toDateInput(iso: string | null | undefined) {
+  if (!iso) return '';
+  return new Date(iso).toISOString().slice(0, 10);
 }
 
 function Avatar({ name, photo, size = 'md' }: { name: string; photo?: string | null; size?: 'sm' | 'md' | 'lg' }) {
@@ -57,6 +63,28 @@ function Badge({ label, color = 'slate' }: { label: string; color?: 'slate'|'gol
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c}`}>{label}</span>;
 }
 
+function Inp({ label, value, onChange, type = 'text', placeholder = '', readOnly = false }:
+  { label?: string; value: string; onChange?: (v: string) => void; type?: string; placeholder?: string; readOnly?: boolean }) {
+  return (
+    <label className="block">
+      {label && <span className="block text-xs font-medium text-slate-600 mb-1">{label}</span>}
+      <input type={type} value={value} placeholder={placeholder} readOnly={readOnly}
+        onChange={e => onChange?.(e.target.value)}
+        className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${readOnly ? 'bg-slate-50 border-slate-200 text-slate-500' : 'border-slate-300 bg-white focus:border-[#002664] focus:ring-1 focus:ring-[#002664]/20'}`} />
+    </label>
+  );
+}
+
+function Txt({ label, value, onChange }:{ label?: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      {label && <span className="block text-xs font-medium text-slate-600 mb-1">{label}</span>}
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={3}
+        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#002664] resize-none" />
+    </label>
+  );
+}
+
 export default function MemberPortal({
   slug, club, currentUser,
   initialMembers, initialNews, initialProjects, initialMyDues
@@ -70,14 +98,51 @@ export default function MemberPortal({
   const [search, setSearch] = useState('');
   const [bMonth, setBMonth] = useState(new Date().getMonth());
 
-  const myMemberData = currentUser.memberId
-    ? initialMembers.find(m => m.id === currentUser.memberId) ?? null
-    : null;
+  const [myMember, setMyMember] = useState<Member | null>(
+    currentUser.memberId ? initialMembers.find(m => m.id === currentUser.memberId) ?? null : null
+  );
 
-  const myName = myMemberData?.name ?? currentUser.email;
+  const myName = myMember?.name ?? currentUser.email;
   const thisMonth = new Date().getMonth();
 
-  // Birthdays
+  // ── Profile edit state ─────────────────────────────────────────────────────
+  const [profileTab, setProfileTab] = useState<ProfileTab>('basic');
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [profileForm, setProfileForm] = useState<Member | null>(null);
+  const [profileChildren, setProfileChildren] = useState<Child[]>([]);
+
+  function openProfile() {
+    if (!myMember) return;
+    setProfileForm({ ...myMember });
+    setProfileChildren(myMember.children.map(c => ({ ...c, dateOfBirth: toDateInput(c.dateOfBirth) })));
+    setProfileTab('basic');
+    setSaveMsg('');
+    setTab('profile');
+  }
+
+  async function saveProfile() {
+    if (!profileForm || !myMember) return;
+    setSaving(true); setSaveMsg('');
+    const payload = { ...profileForm, children: profileChildren.filter(c => c.name) };
+    const res = await fetch(`/api/${slug}/members/${myMember.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setMyMember(updated);
+      setProfileForm(updated);
+      setProfileChildren(updated.children.map((c: Child) => ({ ...c, dateOfBirth: toDateInput(c.dateOfBirth) })));
+      setSaveMsg('✅ Profile saved successfully.');
+    } else {
+      setSaveMsg('❌ Failed to save. Please try again.');
+    }
+    setSaving(false);
+  }
+
+  // ── Birthdays ──────────────────────────────────────────────────────────────
   type BdayEntry = { name: string; label: string; date: string };
   const bdays: BdayEntry[] = [];
   for (const m of initialMembers) {
@@ -93,7 +158,6 @@ export default function MemberPortal({
   }
   bdays.sort((a, b) => new Date(a.date).getDate() - new Date(b.date).getDate());
 
-  const thisMonthBdays = bdays.filter(() => bMonth === thisMonth);
   const businesses = initialMembers.filter(m => m.businessName || m.principalActivity);
   const filteredMembers = initialMembers.filter(m =>
     !search || m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -106,7 +170,6 @@ export default function MemberPortal({
     router.push('/login');
   }
 
-  // ── Sidebar nav ────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* Desktop sidebar */}
@@ -115,18 +178,19 @@ export default function MemberPortal({
           <p className="text-xs font-semibold uppercase tracking-widest text-[#F7A81B] mb-1">Member Portal</p>
           <p className="text-sm font-semibold">{club.name}</p>
         </div>
-        {myMemberData && (
-          <div className="p-4 border-b border-white/10 flex items-center gap-3">
-            <Avatar name={myMemberData.name} photo={myMemberData.photoUrl} size="sm" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{myMemberData.name}</p>
-              <p className="text-xs text-white/50 truncate">{myMemberData.classification || 'Rotarian'}</p>
+        {myMember && (
+          <button onClick={openProfile} className="p-4 border-b border-white/10 flex items-center gap-3 hover:bg-white/10 transition-colors text-left w-full">
+            <Avatar name={myMember.name} photo={myMember.photoUrl} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{myMember.name}</p>
+              <p className="text-xs text-white/50 truncate">{myMember.classification || 'Rotarian'}</p>
             </div>
-          </div>
+            <span className="text-white/40 text-xs">Edit</span>
+          </button>
         )}
         <nav className="flex-1 py-4">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => t.id === 'profile' ? openProfile() : setTab(t.id)}
               className={`w-full flex items-center gap-3 px-6 py-3 text-sm text-left transition-colors
                 ${tab === t.id ? 'bg-white/15 text-white font-semibold' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
               <span>{t.icon}</span>{t.label}
@@ -142,10 +206,10 @@ export default function MemberPortal({
       </aside>
 
       {/* Mobile bottom tab bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-[#002664] text-white border-t border-white/10">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-[#002664] text-white border-t border-white/10 overflow-x-auto">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center py-2 text-[9px] gap-0.5 ${tab === t.id ? 'text-[#F7A81B]' : 'text-white/60'}`}>
+          <button key={t.id} onClick={() => t.id === 'profile' ? openProfile() : setTab(t.id)}
+            className={`flex-1 flex flex-col items-center py-2 text-[9px] gap-0.5 min-w-[52px] ${tab === t.id ? 'text-[#F7A81B]' : 'text-white/60'}`}>
             <span className="text-base">{t.icon}</span>{t.label}
           </button>
         ))}
@@ -160,18 +224,22 @@ export default function MemberPortal({
             <>
               <div className="rounded-2xl bg-gradient-to-br from-[#002664] to-[#004ab5] text-white p-6">
                 <div className="flex items-center gap-4">
-                  <Avatar name={myName} photo={myMemberData?.photoUrl} size="lg" />
+                  <button onClick={openProfile} className="shrink-0 group relative">
+                    <Avatar name={myName} photo={myMember?.photoUrl} size="lg" />
+                    <span className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">Edit</span>
+                  </button>
                   <div>
                     <p className="text-sm text-white/60">Welcome back,</p>
                     <h1 className="text-2xl font-bold">{myName}</h1>
-                    {myMemberData?.classification && <p className="text-sm text-white/70 mt-0.5">{myMemberData.classification}</p>}
+                    {myMember?.classification && <p className="text-sm text-white/70 mt-0.5">{myMember.classification}</p>}
+                    <button onClick={openProfile} className="mt-2 text-xs text-[#F7A81B] underline underline-offset-2 hover:text-white transition-colors">Edit my profile →</button>
                   </div>
                 </div>
-                {myMemberData && (
+                {myMember && (
                   <div className="grid grid-cols-3 gap-3 mt-5">
-                    {myMemberData.rotaryId && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Rotary ID</p><p className="font-bold text-sm mt-0.5">{myMemberData.rotaryId}</p></div>}
-                    {myMemberData.inductionDate && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Inducted</p><p className="font-bold text-sm mt-0.5">{fmt(myMemberData.inductionDate)}</p></div>}
-                    {myMemberData.proposedBy && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Proposed By</p><p className="font-bold text-sm mt-0.5">{myMemberData.proposedBy}</p></div>}
+                    {myMember.rotaryId && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Rotary ID</p><p className="font-bold text-sm mt-0.5">{myMember.rotaryId}</p></div>}
+                    {myMember.inductionDate && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Inducted</p><p className="font-bold text-sm mt-0.5">{fmt(myMember.inductionDate)}</p></div>}
+                    {myMember.proposedBy && <div className="bg-white/10 rounded-xl p-3 text-center"><p className="text-[10px] text-white/50 uppercase tracking-wide">Proposed By</p><p className="font-bold text-sm mt-0.5">{myMember.proposedBy}</p></div>}
                   </div>
                 )}
               </div>
@@ -218,6 +286,126 @@ export default function MemberPortal({
             </>
           )}
 
+          {/* ── My Profile ── */}
+          {tab === 'profile' && (
+            <>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-[#002664]">My Profile</h1>
+              </div>
+
+              {!myMember || !profileForm ? (
+                <Card className="p-6 text-center">
+                  <p className="text-slate-500">Your account is not linked to a member record. Contact the admin.</p>
+                </Card>
+              ) : (
+                <>
+                  {/* Header card */}
+                  <Card className="p-5">
+                    <div className="flex items-center gap-4">
+                      <Avatar name={myMember.name} photo={profileForm.photoUrl} size="lg" />
+                      <div>
+                        <p className="font-bold text-[#002664] text-lg">{myMember.name}</p>
+                        {myMember.classification && <p className="text-sm text-slate-500">{myMember.classification}</p>}
+                        {myMember.rotaryId && <Badge label={`Rotary ID: ${myMember.rotaryId}`} color="blue" />}
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-xs font-medium text-slate-600 mb-1">Photo URL</p>
+                      <input
+                        value={profileForm.photoUrl || ''}
+                        onChange={e => setProfileForm(f => f && ({ ...f, photoUrl: e.target.value }))}
+                        placeholder="https://…"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#002664]"
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Sub-tabs */}
+                  <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                    {(['basic', 'family', 'business'] as ProfileTab[]).map(t => (
+                      <button key={t} onClick={() => setProfileTab(t)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-all ${profileTab === t ? 'bg-white shadow text-[#002664]' : 'text-slate-500 hover:text-slate-700'}`}>
+                        {t === 'basic' ? 'Personal' : t === 'family' ? 'Family' : 'Business'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Basic / Personal */}
+                  {profileTab === 'basic' && (
+                    <Card className="p-5 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Inp label="Full Name" value={profileForm.name} onChange={v => setProfileForm(f => f && ({ ...f, name: v }))} />
+                        <Inp label="Email" type="email" value={profileForm.email || ''} onChange={v => setProfileForm(f => f && ({ ...f, email: v }))} />
+                        <Inp label="Mobile" value={profileForm.phone || ''} onChange={v => setProfileForm(f => f && ({ ...f, phone: v }))} />
+                        <Inp label="Date of Birth" type="date" value={toDateInput(profileForm.dateOfBirth)} onChange={v => setProfileForm(f => f && ({ ...f, dateOfBirth: v }))} />
+                        <Inp label="Classification" value={profileForm.classification || ''} readOnly />
+                        <Inp label="Rotary ID" value={profileForm.rotaryId || ''} readOnly />
+                        <Inp label="Induction Date" value={fmt(profileForm.inductionDate)} readOnly />
+                        <Inp label="Proposed By" value={profileForm.proposedBy || ''} readOnly />
+                      </div>
+                      <Inp label="Home Address" value={profileForm.address || ''} onChange={v => setProfileForm(f => f && ({ ...f, address: v }))} />
+                    </Card>
+                  )}
+
+                  {/* Family */}
+                  {profileTab === 'family' && (
+                    <Card className="p-5 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Inp label="Spouse Name" value={profileForm.spouseName || ''} onChange={v => setProfileForm(f => f && ({ ...f, spouseName: v }))} />
+                        <Inp label="Spouse DOB" type="date" value={toDateInput(profileForm.spouseDob)} onChange={v => setProfileForm(f => f && ({ ...f, spouseDob: v }))} />
+                        <Inp label="Spouse Email" type="email" value={profileForm.spouseEmail || ''} onChange={v => setProfileForm(f => f && ({ ...f, spouseEmail: v }))} />
+                        <Inp label="Spouse Mobile" value={profileForm.spousePhone || ''} onChange={v => setProfileForm(f => f && ({ ...f, spousePhone: v }))} />
+                        <div className="sm:col-span-2"><Inp label="Anniversary Date" type="date" value={toDateInput(profileForm.anniversary)} onChange={v => setProfileForm(f => f && ({ ...f, anniversary: v }))} /></div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-600 mb-2">Children</p>
+                        {profileChildren.map((c, i) => (
+                          <div key={i} className="flex gap-2 mb-2 items-start">
+                            <div className="flex-1">
+                              <Inp placeholder="Child name" value={c.name} onChange={v => setProfileChildren(cs => cs.map((ch, j) => j === i ? { ...ch, name: v } : ch))} />
+                            </div>
+                            <div className="flex-1">
+                              <Inp type="date" value={c.dateOfBirth?.slice(0,10) || ''} onChange={v => setProfileChildren(cs => cs.map((ch, j) => j === i ? { ...ch, dateOfBirth: v } : ch))} />
+                            </div>
+                            <button onClick={() => setProfileChildren(cs => cs.filter((_, j) => j !== i))} className="text-rose-400 hover:text-rose-600 px-2 pt-2 text-lg leading-none">✕</button>
+                          </div>
+                        ))}
+                        <button onClick={() => setProfileChildren(cs => [...cs, { name: '', dateOfBirth: '' }])}
+                          className="text-sm text-[#002664] hover:underline mt-1">+ Add child</button>
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Business */}
+                  {profileTab === 'business' && (
+                    <Card className="p-5 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2"><Inp label="Occupation" value={profileForm.occupation || ''} onChange={v => setProfileForm(f => f && ({ ...f, occupation: v }))} /></div>
+                        <div className="sm:col-span-2"><Inp label="Principal Activity" value={profileForm.principalActivity || ''} onChange={v => setProfileForm(f => f && ({ ...f, principalActivity: v }))} /></div>
+                        <Inp label="Business Name" value={profileForm.businessName || ''} onChange={v => setProfileForm(f => f && ({ ...f, businessName: v }))} />
+                        <Inp label="Business Tagline" value={profileForm.businessTagline || ''} onChange={v => setProfileForm(f => f && ({ ...f, businessTagline: v }))} />
+                        <div className="sm:col-span-2"><Inp label="Business Address" value={profileForm.businessAddress || ''} onChange={v => setProfileForm(f => f && ({ ...f, businessAddress: v }))} /></div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {saveMsg && (
+                    <p className={`text-sm px-4 py-2.5 rounded-xl ${saveMsg.startsWith('✅') ? 'bg-green-50 text-green-700' : 'bg-rose-50 text-rose-700'}`}>
+                      {saveMsg}
+                    </p>
+                  )}
+
+                  <button onClick={saveProfile} disabled={saving}
+                    className="w-full rounded-xl bg-[#002664] text-white font-semibold py-3 text-sm hover:bg-[#001a4a] disabled:opacity-60 transition-colors">
+                    {saving ? 'Saving…' : 'Save profile'}
+                  </button>
+
+                  <p className="text-xs text-slate-400 text-center">Fields like Rotary ID, Classification, and Induction Date can only be changed by the admin.</p>
+                </>
+              )}
+            </>
+          )}
+
           {/* ── Directory ── */}
           {tab === 'directory' && (
             <>
@@ -232,12 +420,13 @@ export default function MemberPortal({
               />
               <div className="space-y-3">
                 {filteredMembers.map(m => (
-                  <Card key={m.id} className="p-5">
+                  <Card key={m.id} className={`p-5 ${m.id === currentUser.memberId ? 'border-[#002664]/30 bg-blue-50/30' : ''}`}>
                     <div className="flex items-start gap-4">
                       <Avatar name={m.name} photo={m.photoUrl} size="md" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-[#002664]">{m.name}</p>
+                          {m.id === currentUser.memberId && <Badge label="You" color="blue" />}
                           {m.rotaryId && <Badge label={`ID: ${m.rotaryId}`} color="blue" />}
                           {m.classification && <Badge label={m.classification} />}
                         </div>
@@ -249,11 +438,14 @@ export default function MemberPortal({
                         {(m.spouseName || m.children.length > 0) && (
                           <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500 space-y-0.5">
                             {m.spouseName && <p>💍 Spouse: <span className="font-medium text-slate-700">{m.spouseName}</span>{m.spouseDob ? ` · DOB: ${fmtMD(m.spouseDob)}` : ''}</p>}
-                            {m.children.map((c,i) => <p key={i}>👶 {c.name}{c.dateOfBirth ? ` · ${fmtMD(c.dateOfBirth)}` : ''}</p>)}
+                            {m.children.map((c, i) => <p key={i}>👶 {c.name}{c.dateOfBirth ? ` · ${fmtMD(c.dateOfBirth)}` : ''}</p>)}
                           </div>
                         )}
                         {m.address && <p className="text-xs text-slate-400 mt-1.5">📍 {m.address}</p>}
                       </div>
+                      {m.id === currentUser.memberId && (
+                        <button onClick={openProfile} className="shrink-0 text-xs text-[#002664] border border-[#002664]/30 rounded-lg px-2 py-1 hover:bg-[#002664] hover:text-white transition-colors">Edit</button>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -269,16 +461,12 @@ export default function MemberPortal({
               <div className="space-y-3">
                 {initialProjects.map(p => (
                   <Card key={p.id} className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap gap-2 mb-1">
-                          <Badge label={p.avenue} color="blue" />
-                          <Badge label={p.status || 'active'} color={p.status === 'completed' ? 'green' : p.status === 'paused' ? 'slate' : 'gold'} />
-                        </div>
-                        <p className="font-semibold text-[#002664]">{p.title}</p>
-                        {p.description && <p className="text-sm text-slate-600 mt-1">{p.description}</p>}
-                      </div>
+                    <div className="flex flex-wrap gap-2 mb-1">
+                      <Badge label={p.avenue} color="blue" />
+                      <Badge label={p.status || 'active'} color={p.status === 'completed' ? 'green' : p.status === 'paused' ? 'slate' : 'gold'} />
                     </div>
+                    <p className="font-semibold text-[#002664]">{p.title}</p>
+                    {p.description && <p className="text-sm text-slate-600 mt-1">{p.description}</p>}
                   </Card>
                 ))}
                 {initialProjects.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No projects yet.</p>}
@@ -340,9 +528,9 @@ export default function MemberPortal({
           {tab === 'promotions' && (
             <>
               <h1 className="text-2xl font-bold text-[#002664]">Branding & Promotions</h1>
-              <p className="text-sm text-slate-500">Support your fellow Rotarians' businesses.</p>
+              <p className="text-sm text-slate-500">Support your fellow Rotarians&apos; businesses.</p>
               {businesses.length === 0
-                ? <p className="text-sm text-slate-400 text-center py-8">No business listings yet.</p>
+                ? <p className="text-sm text-slate-400 text-center py-8">No business listings yet. Add your business details in My Profile.</p>
                 : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {businesses.map(m => (
