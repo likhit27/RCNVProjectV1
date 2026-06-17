@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'RCNV – Rotary Club Of Nagpur Vision',
+  title: 'RCNV – Rotary Club Nagpur Vision',
   description: 'Rotary Club management platform for members, projects, news, and dues.'
 };
 

@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   const club = await prisma.club.upsert({
-    where: { slug: 'rotary-navi-mumbai' },
-    update: {},
+    where: { slug: 'rotary-nagpur-vision' },
+    update: { name: 'Rotary Club Nagpur Vision' },
     create: {
-      slug: 'rotary-navi-mumbai',
-      name: 'Rotary Navi Mumbai'
+      slug: 'rotary-nagpur-vision',
+      name: 'Rotary Club Nagpur Vision'
     }
   });
 
@@ -69,7 +69,7 @@ async function main() {
   await prisma.news.create({
     data: {
       clubId: club.id,
-      title: 'Welcome to Rotary Navi Mumbai',
+      title: 'Welcome to Rotary Club Nagpur Vision',
       body: 'This is the official club news board for announcements and updates.',
       pinned: true
     }
