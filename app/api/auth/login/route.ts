@@ -29,7 +29,13 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
-    return NextResponse.json({ message: 'Authentication failed' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[login] error:', msg);
+    const isNotFound = msg.includes('Club not found');
+    return NextResponse.json(
+      { message: isNotFound ? 'Club not found' : 'Database connection failed — check server logs' },
+      { status: 500 }
+    );
   }
 }
