@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   const club = await prisma.club.upsert({
-    where: { slug: 'rotary-nagpur-vision' },
-    update: { name: 'Rotary Club Of Nagpur Vision' },
+    where: { slug: 'rotary-navi-mumbai' },
+    update: {},
     create: {
-      slug: 'rotary-nagpur-vision',
-      name: 'Rotary Club Of Nagpur Vision'
+      slug: 'rotary-navi-mumbai',
+      name: 'Rotary Navi Mumbai'
     }
   });
 
@@ -44,7 +44,7 @@ async function main() {
       email: 'member2@rotary.local',
       phone: '+919900445566',
       classification: 'Community',
-      address: 'Nagpur, India'
+      address: 'Navi Mumbai, India'
     }
   });
 
@@ -69,7 +69,7 @@ async function main() {
   await prisma.news.create({
     data: {
       clubId: club.id,
-      title: 'Welcome to Rotary Club Of Nagpur Vision',
+      title: 'Welcome to Rotary Navi Mumbai',
       body: 'This is the official club news board for announcements and updates.',
       pinned: true
     }
