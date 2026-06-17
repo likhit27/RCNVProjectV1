@@ -8,7 +8,7 @@ const ADMIN_ROLES = ['super_admin', 'secretary', 'treasurer', 'president'];
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [slug, setSlug] = useState('rotary-navi-mumbai');
+  const [slug, setSlug] = useState('rotary-nagpur-vision');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function LoginPage() {
     <main className="min-h-screen bg-[#002664] flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#F7A81B] mb-1">RCNV · Rotary Navi Mumbai</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#F7A81B] mb-1">RCNV · Rotary Club Of Nagpur Vision</p>
           <h1 className="text-3xl font-bold text-white">Sign in</h1>
           <p className="mt-1 text-white/50 text-sm">Enter your club credentials</p>
         </div>
