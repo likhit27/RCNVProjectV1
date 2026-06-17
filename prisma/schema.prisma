@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Club {
+  id        String      @id @default(cuid())
+  slug      String      @unique
+  name      String
+  users     ClubUser[]
+  members   Member[]
+  projects  Project[]
+  news      News[]
+  dues      Due[]
+  sessions  Session[]
+  createdAt DateTime    @default(now())
+}
+
+model ClubUser {
+  id        String   @id @default(cuid())
+  club      Club     @relation(fields: [clubId], references: [id])
+  clubId    String
+  email     String
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+
+  @@unique([clubId, email])
+}
+
+model Member {
+  id              String   @id @default(cuid())
+  club            Club     @relation(fields: [clubId], references: [id])
+  clubId          String
+  name            String
+  email           String?
+  phone           String?
+  classification  String?
+  dateOfBirth     DateTime?
+  anniversary     DateTime?
+  address         String?
+  businessName    String?
+  businessTagline String?
+  spouseName      String?
+  spouseDob       DateTime?
+  children        Child[]
+  dues            Due[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([clubId])
+}
+
+model Child {
+  id          String   @id @default(cuid())
+  member      Member   @relation(fields: [memberId], references: [id])
+  memberId    String
+  name        String
+  dateOfBirth DateTime?
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  club        Club     @relation(fields: [clubId], references: [id])
+  clubId      String
+  title       String
+  avenue      String
+  description String?
+  startedAt   DateTime @default(now())
+  status      String   @default("active")
+}
+
+model News {
+  id        String   @id @default(cuid())
+  club      Club     @relation(fields: [clubId], references: [id])
+  clubId    String
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Due {
+  id        String   @id @default(cuid())
+  club      Club     @relation(fields: [clubId], references: [id])
+  clubId    String
+  member    Member   @relation(fields: [memberId], references: [id])
+  memberId  String
+  amount    Float
+  paid      Boolean  @default(false)
+  dueDate   DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  club      Club     @relation(fields: [clubId], references: [id])
+  clubId    String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
