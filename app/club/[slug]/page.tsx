@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { getClubBySlug, getMembers, getNews, getProjects, getDuesSummary } from '@/lib/db';
 

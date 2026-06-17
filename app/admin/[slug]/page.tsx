@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { getClubBySlug, getMembers, getNews, getProjects, getDuesSummary, getSessionByToken } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage(props: any) {
   const { slug } = props.params as { slug: string };
   const cookieStore = await cookies();
