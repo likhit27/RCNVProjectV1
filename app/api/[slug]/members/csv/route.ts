@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { requireClubSession } from '@/lib/apiAuth';
-import { upsertMember } from '@/lib/db';
+import { upsertMember, prisma } from '@/lib/db';
 
 // Parse a date string leniently (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, Excel serial)
 function parseDate(val: unknown): Date | null {
   if (!val) return null;
   if (typeof val === 'number') {
-    // Excel serial date
     const d = new Date((val - 25569) * 86400 * 1000);
     return isNaN(d.getTime()) ? null : d;
   }
   const s = String(val).trim();
   if (!s) return null;
-  // DD/MM/YYYY
   const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
   const d = new Date(s);
@@ -30,11 +29,18 @@ function col(row: Record<string, unknown>, ...keys: string[]): string {
 
 async function processRows(rows: Record<string, unknown>[], clubId: string) {
   let imported = 0;
+  let loginsCreated = 0;
+  let loginsSkipped = 0;
   const errors: string[] = [];
+
   for (const row of rows) {
     const name = col(row, 'Name Surname', 'Name', 'Full Name');
     if (!name) { errors.push(`Skipped row — no name: ${JSON.stringify(row)}`); continue; }
+
     try {
+      const email = col(row, 'MEMBER E -Mail', 'Member E-Mail', 'Email', 'MEMBER E-Mail') || null;
+      const phone = col(row, 'Mobile', 'Phone') || null;
+
       const children: { name: string }[] = [];
       const c1 = col(row, 'Child 1', 'Child1');
       const c2 = col(row, 'Child 2', 'Child2');
@@ -43,11 +49,11 @@ async function processRows(rows: Record<string, unknown>[], clubId: string) {
       if (c2) children.push({ name: c2 });
       if (c3) children.push({ name: c3 });
 
-      await upsertMember(clubId, {
+      const member = await upsertMember(clubId, {
         name,
         rotaryId: col(row, 'Rotary ID', 'RotaryID') || null,
-        email: col(row, 'MEMBER E -Mail', 'Member E-Mail', 'Email', 'MEMBER E-Mail') || null,
-        phone: col(row, 'Mobile', 'Phone') || null,
+        email,
+        phone,
         classification: col(row, 'Classification') || null,
         occupation: col(row, 'SOccupation', 'Occupation') || null,
         principalActivity: col(row, 'Principal Activity', 'PrincipalActivity') || null,
@@ -65,11 +71,33 @@ async function processRows(rows: Record<string, unknown>[], clubId: string) {
         children,
       });
       imported++;
+
+      // Auto-create login account if member has an email and mobile
+      if (email && phone) {
+        const existing = await prisma.clubUser.findUnique({
+          where: { clubId_email: { clubId, email } }
+        });
+        if (!existing) {
+          // Default password = mobile number
+          const passwordHash = await bcrypt.hash(phone, 10);
+          await prisma.clubUser.create({
+            data: { clubId, email, password: passwordHash, role: 'member', memberId: member.id }
+          });
+          loginsCreated++;
+        } else {
+          // If already exists, update memberId link
+          await prisma.clubUser.update({
+            where: { clubId_email: { clubId, email } },
+            data: { memberId: member.id }
+          });
+          loginsSkipped++;
+        }
+      }
     } catch (e: unknown) {
       errors.push(`Failed "${name}": ${String(e)}`);
     }
   }
-  return { imported, errors };
+  return { imported, loginsCreated, loginsSkipped, errors };
 }
 
 export async function POST(req: Request, context: { params: Promise<{ slug: string }> }) {
@@ -82,18 +110,15 @@ export async function POST(req: Request, context: { params: Promise<{ slug: stri
   if (!file) return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
 
   const ext = file.name.split('.').pop()?.toLowerCase();
-
   let rows: Record<string, unknown>[];
 
   if (ext === 'xlsx' || ext === 'xls') {
-    // Parse Excel with xlsx
     const buf = await file.arrayBuffer();
     const XLSX = await import('xlsx');
     const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
   } else {
-    // CSV fallback
     const { parse } = await import('csv-parse/sync');
     const text = await file.text();
     try {

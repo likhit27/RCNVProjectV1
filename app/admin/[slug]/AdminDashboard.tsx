@@ -203,7 +203,7 @@ export default function AdminDashboard({
     const res = await fetch(`/api/${slug}/members/csv`,{method:'POST',body:fd});
     const data = await res.json();
     if (res.ok) {
-      setImportStatus(`✅ Imported ${data.imported} members.${data.errors?.length?` (${data.errors.length} skipped)`:''}`)
+      setImportStatus(`✅ Imported ${data.imported} members · ${data.loginsCreated} new logins created (password = mobile number)${data.loginsSkipped?` · ${data.loginsSkipped} logins already existed`:''}${data.errors?.length?` · ${data.errors.length} skipped`:''}`)
       const fresh = await api('/members'); if(fresh.ok) setMembers(await fresh.json());
     } else { setImportStatus('❌ Import failed: '+data.message); }
     e.target.value='';
