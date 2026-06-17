@@ -44,7 +44,30 @@ export default async function AdminPage(props: { params: Promise<{ slug: string 
   if (!currentUser) redirect('/login');
 
   const adminRoles = ['super_admin', 'secretary', 'treasurer', 'president'];
-  if (!adminRoles.includes(currentUser.role || '')) redirect(`/portal/${slug}`);
+  if (!adminRoles.includes(currentUser.role || '')) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <div className="rounded-2xl border bg-white p-10 shadow-sm text-center max-w-sm">
+          <p className="text-4xl mb-4">🚫</p>
+          <h1 className="text-xl font-semibold text-[#002664]">Access Denied</h1>
+          <p className="mt-2 text-slate-500 text-sm">
+            Your account (<span className="font-medium">{currentUser.email}</span>) has role{' '}
+            <span className="font-mono bg-slate-100 px-1 rounded">{currentUser.role || 'none'}</span>{' '}
+            which does not have admin access.
+          </p>
+          <p className="mt-3 text-slate-400 text-xs">Ask the super admin to update your role to <span className="font-mono">super_admin</span>, <span className="font-mono">secretary</span>, <span className="font-mono">treasurer</span>, or <span className="font-mono">president</span>.</p>
+          <div className="mt-6 flex gap-3 justify-center">
+            <Link href={`/portal/${slug}`} className="rounded-xl bg-[#002664] px-5 py-2.5 text-white text-sm font-medium hover:bg-[#001a4a]">
+              Go to Member Portal
+            </Link>
+            <Link href="/login" className="rounded-xl border border-slate-300 px-5 py-2.5 text-slate-700 text-sm font-medium hover:bg-slate-50">
+              Switch account
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const [members, news, projects, dues, users] = await Promise.all([
     getFullMembers(club.id),
