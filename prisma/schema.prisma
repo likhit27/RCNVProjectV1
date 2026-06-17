@@ -27,9 +27,11 @@ model ClubUser {
   clubId    String
   email     String
   password  String
-  role      String?   @default("admin")
+  role      String?   @default("member")
+  memberId  String?
   createdAt DateTime? @default(now()) @db.Timestamp(6)
   club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  member    Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([clubId, email])
 }
@@ -37,21 +39,31 @@ model ClubUser {
 model Member {
   id              String    @id @default(cuid())
   clubId          String
+  rotaryId        String?
   name            String
   email           String?
   phone           String?
   classification  String?
+  occupation      String?
+  principalActivity String?
+  inductionDate   DateTime? @db.Timestamp(6)
+  proposedBy      String?
   dateOfBirth     DateTime? @db.Timestamp(6)
   anniversary     DateTime? @db.Timestamp(6)
   address         String?
   businessName    String?
   businessTagline String?
+  businessAddress String?
+  photoUrl        String?
   spouseName      String?
+  spouseEmail     String?
+  spousePhone     String?
   spouseDob       DateTime? @db.Timestamp(6)
   createdAt       DateTime? @default(now()) @db.Timestamp(6)
   updatedAt       DateTime? @default(now()) @updatedAt @db.Timestamp(6)
   children        Child[]
   dues            Due[]
+  users           ClubUser[]
   club            Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clubId])

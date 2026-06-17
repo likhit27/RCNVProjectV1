@@ -2,8 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getClubBySlug, getFullMembers, getNews, getProjects, getDues, getSessionByToken } from '@/lib/db';
+import { getClubBySlug, getFullMembers, getNews, getProjects, getDues, getClubUsers, getSessionByToken, getClubUserByEmail } from '@/lib/db';
 import AdminDashboard from './AdminDashboard';
+import { redirect } from 'next/navigation';
 
 export default async function AdminPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params;
@@ -39,14 +40,20 @@ export default async function AdminPage(props: { params: Promise<{ slug: string 
     );
   }
 
-  const [members, news, projects, dues] = await Promise.all([
+  const currentUser = await getClubUserByEmail(club.id, session.email);
+  if (!currentUser) redirect('/login');
+
+  const adminRoles = ['super_admin', 'secretary', 'treasurer', 'president'];
+  if (!adminRoles.includes(currentUser.role || '')) redirect(`/portal/${slug}`);
+
+  const [members, news, projects, dues, users] = await Promise.all([
     getFullMembers(club.id),
     getNews(club.id),
     getProjects(club.id),
     getDues(club.id),
+    getClubUsers(club.id),
   ]);
 
-  // Serialize Prisma Date objects to strings for client component
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const serial = (v: unknown): any => JSON.parse(JSON.stringify(v));
 
@@ -54,10 +61,12 @@ export default async function AdminPage(props: { params: Promise<{ slug: string 
     <AdminDashboard
       slug={slug}
       club={serial(club)}
+      currentRole={currentUser.role as 'super_admin'|'secretary'|'treasurer'|'president'}
       initialMembers={serial(members)}
       initialNews={serial(news)}
       initialProjects={serial(projects)}
       initialDues={serial(dues)}
+      initialUsers={serial(users)}
     />
   );
 }

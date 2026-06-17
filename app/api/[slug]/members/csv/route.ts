@@ -1,7 +1,76 @@
 import { NextResponse } from 'next/server';
 import { requireClubSession } from '@/lib/apiAuth';
 import { createMember } from '@/lib/db';
-import { parse } from 'csv-parse/sync';
+
+// Parse a date string leniently (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, Excel serial)
+function parseDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (typeof val === 'number') {
+    // Excel serial date
+    const d = new Date((val - 25569) * 86400 * 1000);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const s = String(val).trim();
+  if (!s) return null;
+  // DD/MM/YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Normalise a row keyed by header (case+space insensitive)
+function col(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const found = Object.keys(row).find(r => r.trim().toLowerCase() === k.toLowerCase());
+    if (found && row[found] !== undefined && String(row[found]).trim()) return String(row[found]).trim();
+  }
+  return '';
+}
+
+async function processRows(rows: Record<string, unknown>[], clubId: string) {
+  let imported = 0;
+  const errors: string[] = [];
+  for (const row of rows) {
+    const name = col(row, 'Name Surname', 'Name', 'Full Name');
+    if (!name) { errors.push(`Skipped row — no name: ${JSON.stringify(row)}`); continue; }
+    try {
+      const children: { name: string }[] = [];
+      const c1 = col(row, 'Child 1', 'Child1');
+      const c2 = col(row, 'Child 2', 'Child2');
+      const c3 = col(row, 'Child 3', 'Child3');
+      if (c1) children.push({ name: c1 });
+      if (c2) children.push({ name: c2 });
+      if (c3) children.push({ name: c3 });
+
+      await createMember(clubId, {
+        name,
+        rotaryId: col(row, 'Rotary ID', 'RotaryID') || null,
+        email: col(row, 'MEMBER E -Mail', 'Member E-Mail', 'Email', 'MEMBER E-Mail') || null,
+        phone: col(row, 'Mobile', 'Phone') || null,
+        classification: col(row, 'Classification') || null,
+        occupation: col(row, 'SOccupation', 'Occupation') || null,
+        principalActivity: col(row, 'Principal Activity', 'PrincipalActivity') || null,
+        inductionDate: parseDate(row[Object.keys(row).find(k => k.toLowerCase().includes('induction')) || ''] ?? null),
+        proposedBy: col(row, 'Proposed By', 'ProposedBy') || null,
+        dateOfBirth: parseDate(row[Object.keys(row).find(k => k.toLowerCase().includes('birth') && k.toLowerCase().includes('member')) || ''] ?? null),
+        anniversary: parseDate(row[Object.keys(row).find(k => k.toLowerCase().includes('anniversary')) || ''] ?? null),
+        address: col(row, 'Home Address', 'Address') || null,
+        businessName: col(row, 'Principal Activity', 'PrincipalActivity', 'Business Name') || null,
+        businessAddress: col(row, 'Business Address', 'BusinessAddress') || null,
+        spouseName: col(row, 'SpouseName', 'Spouse Name') || null,
+        spouseEmail: col(row, 'SPOUSE E-Mail', 'Spouse Email') || null,
+        spousePhone: col(row, 'Spouse Mobile', 'Spouse Phone') || null,
+        spouseDob: parseDate(row[Object.keys(row).find(k => k.toLowerCase().includes('spouse') && k.toLowerCase().includes('dob')) || ''] ?? null),
+        children,
+      });
+      imported++;
+    } catch (e: unknown) {
+      errors.push(`Failed "${name}": ${String(e)}`);
+    }
+  }
+  return { imported, errors };
+}
 
 export async function POST(req: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;
@@ -12,43 +81,28 @@ export async function POST(req: Request, context: { params: Promise<{ slug: stri
   const file = formData.get('file') as File | null;
   if (!file) return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
 
-  const text = await file.text();
-  let records: Record<string, string>[];
-  try {
-    records = parse(text, { columns: true, skip_empty_lines: true, trim: true });
-  } catch {
-    return NextResponse.json({ message: 'Invalid CSV format' }, { status: 400 });
-  }
+  const ext = file.name.split('.').pop()?.toLowerCase();
 
-  let imported = 0;
-  const errors: string[] = [];
+  let rows: Record<string, unknown>[];
 
-  for (const row of records) {
-    if (!row.name) { errors.push(`Row missing name: ${JSON.stringify(row)}`); continue; }
+  if (ext === 'xlsx' || ext === 'xls') {
+    // Parse Excel with xlsx
+    const buf = await file.arrayBuffer();
+    const XLSX = await import('xlsx');
+    const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  } else {
+    // CSV fallback
+    const { parse } = await import('csv-parse/sync');
+    const text = await file.text();
     try {
-      const children: { name: string; dateOfBirth?: string }[] = [];
-      if (row.child1) children.push({ name: row.child1, dateOfBirth: row.child1dob || undefined });
-      if (row.child2) children.push({ name: row.child2, dateOfBirth: row.child2dob || undefined });
-
-      await createMember(auth.club.id, {
-        name: row.name,
-        email: row.email || undefined,
-        phone: row.phone || undefined,
-        classification: row.classification || undefined,
-        dateOfBirth: row.dateofbirth ? new Date(row.dateofbirth) : undefined,
-        anniversary: row.anniversary ? new Date(row.anniversary) : undefined,
-        address: row.address || undefined,
-        businessName: row.businessname || undefined,
-        businessTagline: row.businesstagline || undefined,
-        spouseName: row.spousename || undefined,
-        spouseDob: row.spousedob ? new Date(row.spousedob) : undefined,
-        children
-      });
-      imported++;
-    } catch (e: unknown) {
-      errors.push(`Failed for ${row.name}: ${String(e)}`);
+      rows = parse(text, { columns: true, skip_empty_lines: true, trim: true });
+    } catch {
+      return NextResponse.json({ message: 'Invalid CSV format' }, { status: 400 });
     }
   }
 
-  return NextResponse.json({ imported, errors });
+  const result = await processRows(rows, auth.club.id);
+  return NextResponse.json(result);
 }
