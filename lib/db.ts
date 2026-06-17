@@ -1,3 +1,10 @@
+// Prefer environment variable but fall back to config file when provided.
+import config from '@/config/config';
+
+if (!process.env.DATABASE_URL && config?.databaseUrl) {
+  process.env.DATABASE_URL = config.databaseUrl;
+}
+
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
