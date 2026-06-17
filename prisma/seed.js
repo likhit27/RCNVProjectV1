@@ -17,7 +17,7 @@ async function main() {
 
   await prisma.clubUser.upsert({
     where: { clubId_email: { clubId: club.id, email: 'admin@rotary.local' } },
-    update: {},
+    update: { password: passwordHash },
     create: {
       clubId: club.id,
       email: 'admin@rotary.local',
