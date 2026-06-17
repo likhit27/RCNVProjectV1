@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'RCNV Rotary Club Management',
-  description: 'Rotary Club multi-tenant management with members, projects, news, and dues.'
+  title: 'RCNV – Rotary Navi Mumbai',
+  description: 'Rotary Club management platform for members, projects, news, and dues.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

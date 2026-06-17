@@ -8,100 +8,100 @@ datasource db {
 }
 
 model Club {
-  id        String      @id @default(cuid())
-  slug      String      @unique
+  id        String     @id @default(cuid())
+  slug      String     @unique
   name      String
+  createdAt DateTime?  @default(now()) @db.Timestamp(6)
   users     ClubUser[]
-  members   Member[]
-  projects  Project[]
-  news      News[]
   dues      Due[]
+  members   Member[]
+  news      News[]
+  projects  Project[]
   sessions  Session[]
-  createdAt DateTime    @default(now())
 }
 
 model ClubUser {
-  id        String   @id @default(cuid())
-  club      Club     @relation(fields: [clubId], references: [id])
+  id        String    @id @default(cuid())
   clubId    String
   email     String
   password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
+  role      String?   @default("admin")
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+  club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([clubId, email])
 }
 
 model Member {
-  id              String   @id @default(cuid())
-  club            Club     @relation(fields: [clubId], references: [id])
+  id              String    @id @default(cuid())
   clubId          String
   name            String
   email           String?
   phone           String?
   classification  String?
-  dateOfBirth     DateTime?
-  anniversary     DateTime?
+  dateOfBirth     DateTime? @db.Timestamp(6)
+  anniversary     DateTime? @db.Timestamp(6)
   address         String?
   businessName    String?
   businessTagline String?
   spouseName      String?
-  spouseDob       DateTime?
+  spouseDob       DateTime? @db.Timestamp(6)
+  createdAt       DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime? @default(now()) @updatedAt @db.Timestamp(6)
   children        Child[]
   dues            Due[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  club            Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clubId])
 }
 
 model Child {
-  id          String   @id @default(cuid())
-  member      Member   @relation(fields: [memberId], references: [id])
+  id          String    @id @default(cuid())
   memberId    String
   name        String
-  dateOfBirth DateTime?
+  dateOfBirth DateTime? @db.Timestamp(6)
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  club        Club     @relation(fields: [clubId], references: [id])
+  id          String    @id @default(cuid())
   clubId      String
   title       String
   avenue      String
   description String?
-  startedAt   DateTime @default(now())
-  status      String   @default("active")
+  startedAt   DateTime? @default(now()) @db.Timestamp(6)
+  status      String?   @default("active")
+  club        Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model News {
-  id        String   @id @default(cuid())
-  club      Club     @relation(fields: [clubId], references: [id])
+  id        String    @id @default(cuid())
   clubId    String
   title     String
   body      String
-  pinned    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  pinned    Boolean?  @default(false)
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+  club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model Due {
-  id        String   @id @default(cuid())
-  club      Club     @relation(fields: [clubId], references: [id])
+  id        String    @id @default(cuid())
   clubId    String
-  member    Member   @relation(fields: [memberId], references: [id])
   memberId  String
-  amount    Float
-  paid      Boolean  @default(false)
-  dueDate   DateTime?
-  createdAt DateTime @default(now())
+  amount    Decimal   @db.Decimal(10, 2)
+  paid      Boolean?  @default(false)
+  dueDate   DateTime? @db.Timestamp(6)
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+  club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  club      Club     @relation(fields: [clubId], references: [id])
+  id        String    @id @default(cuid())
   clubId    String
   email     String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  token     String    @unique
+  expiresAt DateTime  @db.Timestamp(6)
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+  club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
