@@ -97,6 +97,7 @@ export default function MemberPortal({
   const [tab, setTab] = useState<Tab>('dashboard');
   const [search, setSearch] = useState('');
   const [bMonth, setBMonth] = useState(new Date().getMonth());
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   const [myMember, setMyMember] = useState<Member | null>(
     currentUser.memberId ? initialMembers.find(m => m.id === currentUser.memberId) ?? null : null
@@ -183,7 +184,13 @@ export default function MemberPortal({
   }
   bdays.sort((a, b) => new Date(a.date).getDate() - new Date(b.date).getDate());
 
-  const businesses = initialMembers.filter(m => m.businessName || m.principalActivity);
+  const categoryMap = new Map<string, Member[]>();
+  for (const m of initialMembers) {
+    if (!m.classification) continue;
+    if (!categoryMap.has(m.classification)) categoryMap.set(m.classification, []);
+    categoryMap.get(m.classification)!.push(m);
+  }
+  const categories = Array.from(categoryMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   const filteredMembers = initialMembers.filter(m =>
     !search || m.name.toLowerCase().includes(search.toLowerCase()) ||
     (m.classification || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -562,30 +569,67 @@ export default function MemberPortal({
           {/* ── Promotions ── */}
           {tab === 'promotions' && (
             <>
-              <h1 className="text-2xl font-bold text-[#002664]">Branding & Promotions</h1>
-              <p className="text-sm text-slate-500">Support your fellow Rotarians&apos; businesses.</p>
-              {businesses.length === 0
-                ? <p className="text-sm text-slate-400 text-center py-8">No business listings yet. Add your business details in My Profile.</p>
+              <div>
+                <h1 className="text-2xl font-bold text-[#002664]">Branding & Promotions</h1>
+                <p className="text-sm text-slate-500 mt-1">Support your fellow Rotarians&apos; businesses.</p>
+              </div>
+              {categories.length === 0
+                ? <p className="text-sm text-slate-400 text-center py-8">No business listings yet. Add your classification in My Profile.</p>
                 : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {businesses.map(m => (
-                      <Card key={m.id} className="p-5 border-amber-200">
-                        <div className="flex items-start gap-3">
-                          <Avatar name={m.name} photo={m.photoUrl} size="sm" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-[#002664]">{m.businessName || m.principalActivity}</p>
-                            {m.businessTagline && <p className="text-xs text-slate-500 italic mt-0.5">{m.businessTagline}</p>}
-                            {m.occupation && <p className="text-xs text-slate-500 mt-1">{m.occupation}</p>}
-                            <p className="text-xs text-slate-400 mt-2">— {m.name}</p>
-                            <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
-                              {m.phone && <span>📞 {m.phone}</span>}
-                              {m.email && <span>✉ {m.email}</span>}
+                  <div className="space-y-3">
+                    {categories.map(([cat, members]) => {
+                      const isOpen = openCategory === cat;
+                      return (
+                        <div key={cat} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                          <button
+                            onClick={() => setOpenCategory(isOpen ? null : cat)}
+                            className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+                          >
+                            <div className="w-1.5 h-10 rounded-full bg-[#F7A81B] shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-[#002664] text-base">{cat}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {members.length} member{members.length !== 1 ? 's' : ''}
+                              </p>
                             </div>
-                            {m.businessAddress && <p className="text-xs text-slate-400 mt-1">📍 {m.businessAddress}</p>}
-                          </div>
+                            <span className={`text-slate-400 text-lg transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                              ▾
+                            </span>
+                          </button>
+
+                          {isOpen && (
+                            <div className="border-t border-slate-100 p-4">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                {members.map(m => (
+                                  <div key={m.id} className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <Avatar name={m.name} photo={m.photoUrl} size="sm" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-[#002664] text-sm">{m.name}</p>
+                                      {m.businessName && (
+                                        <p className="text-xs text-slate-700 font-medium mt-0.5">{m.businessName}</p>
+                                      )}
+                                      {m.businessTagline && (
+                                        <p className="text-xs text-slate-500 italic">{m.businessTagline}</p>
+                                      )}
+                                      {m.occupation && !m.businessName && (
+                                        <p className="text-xs text-slate-500 mt-0.5">{m.occupation}</p>
+                                      )}
+                                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
+                                        {m.phone && <span>📞 {m.phone}</span>}
+                                        {m.email && <span>✉ {m.email}</span>}
+                                      </div>
+                                      {m.businessAddress && (
+                                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">📍 {m.businessAddress}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 )
               }
