@@ -105,6 +105,31 @@ export default function MemberPortal({
   const myName = myMember?.name ?? currentUser.email;
   const thisMonth = new Date().getMonth();
 
+  // ── Today + next 3 days birthdays/anniversaries for dashboard ──────────────
+  const today = new Date();
+  const upcomingDays = [0, 1, 2, 3].map(offset => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
+    return { month: d.getMonth(), day: d.getDate(), offset };
+  });
+  function dayLabel(offset: number) {
+    if (offset === 0) return 'Today';
+    if (offset === 1) return 'Tomorrow';
+    const d = new Date(today); d.setDate(today.getDate() + offset);
+    return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  type UpcomingEntry = { name: string; label: string; date: string; offset: number };
+  const upcomingCelebrations: UpcomingEntry[] = [];
+  for (const m of initialMembers) {
+    for (const ud of upcomingDays) {
+      if (m.dateOfBirth) { const d = new Date(m.dateOfBirth); if (d.getMonth()===ud.month && d.getDate()===ud.day) upcomingCelebrations.push({name:m.name,label:'Birthday',date:m.dateOfBirth,offset:ud.offset}); }
+      if (m.anniversary) { const d = new Date(m.anniversary); if (d.getMonth()===ud.month && d.getDate()===ud.day) upcomingCelebrations.push({name:m.name,label:'Anniversary',date:m.anniversary,offset:ud.offset}); }
+      if (m.spouseName && m.spouseDob) { const d = new Date(m.spouseDob); if (d.getMonth()===ud.month && d.getDate()===ud.day) upcomingCelebrations.push({name:`${m.spouseName}`,label:`Spouse of ${m.name}`,date:m.spouseDob,offset:ud.offset}); }
+      for (const c of m.children) if (c.dateOfBirth) { const d = new Date(c.dateOfBirth); if (d.getMonth()===ud.month && d.getDate()===ud.day) upcomingCelebrations.push({name:c.name,label:`Child of ${m.name}`,date:c.dateOfBirth,offset:ud.offset}); }
+    }
+  }
+  upcomingCelebrations.sort((a,b) => a.offset - b.offset);
+
   // ── Profile edit state ─────────────────────────────────────────────────────
   const [profileTab, setProfileTab] = useState<ProfileTab>('basic');
   const [saving, setSaving] = useState(false);
@@ -246,16 +271,26 @@ export default function MemberPortal({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Card className="p-5">
-                  <h2 className="font-semibold text-[#002664] mb-3">🎂 Birthdays this month</h2>
-                  {bdays.filter(() => bMonth === thisMonth).length === 0
-                    ? <p className="text-sm text-slate-400">None this month.</p>
-                    : bdays.filter(() => bMonth === thisMonth).slice(0,5).map((b,i) => (
-                      <div key={i} className="flex items-center gap-2 py-2 border-b last:border-0 border-slate-100">
-                        <span className="text-lg">{b.label === 'Anniversary' ? '💍' : '🎂'}</span>
-                        <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{b.name}</p><p className="text-xs text-slate-400">{b.label}</p></div>
-                        <span className="text-xs font-bold text-[#F7A81B]">{fmtMD(b.date)}</span>
+                  <h2 className="font-semibold text-[#002664] mb-1">🎂 Birthdays &amp; Anniversaries</h2>
+                  <p className="text-xs text-slate-400 mb-3">Today &amp; next 3 days</p>
+                  {upcomingCelebrations.length === 0
+                    ? <p className="text-sm text-slate-400">No celebrations in the next 3 days.</p>
+                    : (
+                      <div className="overflow-y-auto max-h-56 pr-1 space-y-0 divide-y divide-slate-100">
+                        {upcomingCelebrations.map((b, i) => (
+                          <div key={i} className="flex items-center gap-2 py-2">
+                            <span className="text-lg shrink-0">{b.label === 'Anniversary' ? '💍' : '🎂'}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{b.name}</p>
+                              <p className="text-xs text-slate-400 truncate">{b.label}</p>
+                            </div>
+                            <span className={`text-xs font-bold shrink-0 ${b.offset === 0 ? 'text-rose-500' : b.offset === 1 ? 'text-amber-500' : 'text-[#F7A81B]'}`}>
+                              {dayLabel(b.offset)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))
+                    )
                   }
                 </Card>
                 <Card className="p-5">
