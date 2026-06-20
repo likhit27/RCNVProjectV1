@@ -143,7 +143,7 @@ export default function AdminDashboard({
   const navItems: NavItem[] = ([
     { id:'overview', label:'Overview', icon:'⬡', allowed: true },
     { id:'members', label:'Members', icon:'👥', allowed: can.members },
-    { id:'news', label:'News', icon:'📢', allowed: can.news },
+    { id:'news', label:'Announcements', icon:'📢', allowed: can.news },
     { id:'projects', label:'Projects', icon:'🌱', allowed: can.projects },
     { id:'dues', label:'Dues', icon:'💰', allowed: can.dues },
     { id:'birthdays', label:'Birthdays', icon:'🎂', allowed: true },
@@ -327,7 +327,7 @@ export default function AdminDashboard({
             <>
               <h1 className="text-2xl font-bold text-[#002664]">Dashboard</h1>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[{label:'Members',value:members.length,color:'bg-blue-50 text-[#002664]'},{label:'Projects',value:projects.length,color:'bg-amber-50 text-amber-700'},{label:'News',value:news.length,color:'bg-emerald-50 text-emerald-700'},{label:'Open Dues',value:unpaid,color:'bg-rose-50 text-rose-700'}].map(s=>(
+                {[{label:'Members',value:members.length,color:'bg-blue-50 text-[#002664]'},{label:'Projects',value:projects.length,color:'bg-amber-50 text-amber-700'},{label:'Announcements',value:news.length,color:'bg-emerald-50 text-emerald-700'},{label:'Open Dues',value:unpaid,color:'bg-rose-50 text-rose-700'}].map(s=>(
                   <Card key={s.label} className={`p-6 ${s.color}`}>
                     <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{s.label}</p>
                     <p className="mt-2 text-4xl font-bold">{s.value}</p>
@@ -470,7 +470,7 @@ export default function AdminDashboard({
           {tab==='news' && (
             <>
               <div className="flex items-center justify-between gap-3">
-                <h1 className="text-2xl font-bold text-[#002664]">News & Announcements</h1>
+                <h1 className="text-2xl font-bold text-[#002664]">Announcements</h1>
                 <Btn variant="gold" onClick={()=>setNewsForm({title:'',body:'',pinned:false})}>+ Add</Btn>
               </div>
               {newsForm && (

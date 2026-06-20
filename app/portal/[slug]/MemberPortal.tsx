@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Home', icon: '⬡' },
   { id: 'directory', label: 'Directory', icon: '👥' },
   { id: 'projects', label: 'Projects', icon: '🌱' },
-  { id: 'news', label: 'News', icon: '📢' },
+  { id: 'news', label: 'Announcements', icon: '📢' },
   { id: 'birthdays', label: 'Birthdays', icon: '🎂' },
   { id: 'promotions', label: 'Promotions', icon: '🏢' },
   { id: 'dues', label: 'My Dues', icon: '💰' },
@@ -301,7 +301,7 @@ export default function MemberPortal({
                   }
                 </Card>
                 <Card className="p-5">
-                  <h2 className="font-semibold text-[#002664] mb-3">📢 Latest news</h2>
+                  <h2 className="font-semibold text-[#002664] mb-3">📢 Latest Announcements</h2>
                   {initialNews.slice(0,4).map(n => (
                     <div key={n.id} className="py-2 border-b last:border-0 border-slate-100">
                       <div className="flex items-center gap-1.5 mb-0.5">{n.pinned && <Badge label="Pinned" color="gold" />}<p className="text-sm font-medium">{n.title}</p></div>
@@ -519,7 +519,7 @@ export default function MemberPortal({
           {/* ── News ── */}
           {tab === 'news' && (
             <>
-              <h1 className="text-2xl font-bold text-[#002664]">Rotary News</h1>
+              <h1 className="text-2xl font-bold text-[#002664]">Announcements</h1>
               <div className="space-y-3">
                 {initialNews.map(n => (
                   <Card key={n.id} className={`p-5 ${n.pinned ? 'border-amber-300' : ''}`}>
