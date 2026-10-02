@@ -119,3 +119,123 @@ model Session {
   createdAt DateTime? @default(now()) @db.Timestamp(6)
   club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
+
+// ── CMS (Public Website) ──────────────────────────────────────────────────────
+
+model WebsiteAdmin {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  password  String
+  name      String       @default("CMS Admin")
+  createdAt DateTime     @default(now())
+  sessions  CmsSession[]
+}
+
+model CmsSession {
+  id        String       @id @default(cuid())
+  adminId   String
+  token     String       @unique
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+  admin     WebsiteAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model HeroBanner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String
+  ctaText   String?
+  ctaUrl    String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model WebProject {
+  id          String   @id @default(cuid())
+  title       String
+  avenue      String
+  description String   @db.Text
+  imageUrl    String?
+  date        String
+  year        String   @default("2025-26")
+  impact      Json?
+  newsUrl     String?
+  published   Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model WebEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  date        DateTime
+  venue       String?
+  imageUrl    String?
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model WebDirector {
+  id       String @id @default(cuid())
+  name     String
+  role     String
+  imageUrl String?
+  year     String @default("2025-26")
+  order    Int    @default(0)
+}
+
+model PastPresident {
+  id       String  @id @default(cuid())
+  name     String
+  year     String
+  imageUrl String?
+  order    Int     @default(0)
+}
+
+model GalleryAlbum {
+  id         String         @id @default(cuid())
+  title      String
+  coverImage String?
+  date       String?
+  published  Boolean        @default(true)
+  order      Int            @default(0)
+  createdAt  DateTime       @default(now())
+  photos     GalleryPhoto[]
+}
+
+model GalleryPhoto {
+  id      String       @id @default(cuid())
+  url     String
+  caption String?
+  order   Int          @default(0)
+  albumId String
+  album   GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model WebNewsletter {
+  id        String   @id @default(cuid())
+  title     String
+  issue     String?
+  year      String
+  pdfUrl    String
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model PageContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model SiteCounter {
+  id    String @id @default(cuid())
+  key   String @unique
+  label String
+  value String
+  order Int    @default(0)
+}

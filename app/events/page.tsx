@@ -1,51 +1,90 @@
 import Link from 'next/link';
 import { PublicShell } from '@/app/components/public/PublicShell';
-import { projects, externalLinks } from '@/lib/rcnv-public-data';
+import { getWebEvents } from '@/lib/cms-db';
 
-export default function EventsPage() {
-  const pastEvents = projects.filter(p => p.year === '2025-26');
+export default async function EventsPage() {
+  let events: { id: string; title: string; description: string | null; date: Date; venue: string | null; imageUrl: string | null }[] = [];
+  try {
+    const db = await getWebEvents();
+    events = db as typeof events;
+  } catch { /* empty */ }
+
+  const now = new Date();
+  const upcoming = events.filter(e => new Date(e.date) >= now);
+  const past = events.filter(e => new Date(e.date) < now);
+
   return (
     <PublicShell>
-      <div className="pt-7 pb-2">
-        <p className="text-xs text-[#5e717d] m-0 mb-1.5">
-          <Link href="/" className="text-[#0067c8] hover:underline">Home</Link> / Events & Newsletters
-        </p>
-        <h1 className="text-[#17458f] font-bold leading-tight m-0 mb-2" style={{ fontSize: 'clamp(28px,5vw,42px)' }}>Events & Newsletters</h1>
-        <p className="text-lg text-[#3a4654] m-0">Speakers, service days and the club newsletter.</p>
+      <section className="bg-[#002664] py-12">
+        <div className="max-w-7xl mx-auto px-4 text-white">
+          <p className="text-xs text-[#F7A81B] uppercase tracking-widest font-bold mb-2">
+            <Link href="/" className="text-[#F7A81B] hover:underline no-underline">Home</Link> / Events
+          </p>
+          <h1 className="text-4xl font-black mb-2">Events</h1>
+          <p className="text-[#c8d9f0] text-lg">Meetings, service days, speaker sessions and special events.</p>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 py-12 space-y-12">
+
+        {/* Upcoming */}
+        <div>
+          <h2 className="text-2xl font-bold text-[#002664] mb-6">Upcoming Events</h2>
+          {upcoming.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {upcoming.map(ev => (
+                <div key={ev.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-[#002664] text-white rounded-xl px-3 py-2 text-center flex-shrink-0 min-w-[56px]">
+                      <p className="text-2xl font-black leading-none">{new Date(ev.date).getDate()}</p>
+                      <p className="text-[10px] uppercase tracking-wider opacity-80">{new Date(ev.date).toLocaleString('en-IN', { month: 'short', year: 'numeric' })}</p>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-[#002664] text-sm leading-snug mb-1">{ev.title}</h3>
+                      {ev.venue && <p className="text-[#5e717d] text-xs mb-1">📍 {ev.venue}</p>}
+                      {ev.description && <p className="text-[#5e717d] text-xs line-clamp-2">{ev.description}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center">
+              <p className="text-slate-400 mb-2">No upcoming events published yet.</p>
+              <p className="text-slate-400 text-sm">Events are managed through the <a href="/cms" className="text-[#002664] hover:underline">CMS</a>.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Past */}
+        {past.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold text-[#002664] mb-6">Past Events</h2>
+            <div className="space-y-3">
+              {past.map(ev => (
+                <div key={ev.id} className="bg-white border border-slate-100 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                  <div className="bg-slate-100 text-slate-500 rounded-lg px-3 py-2 text-center flex-shrink-0 min-w-[56px]">
+                    <p className="text-lg font-bold leading-none">{new Date(ev.date).getDate()}</p>
+                    <p className="text-[10px] uppercase">{new Date(ev.date).toLocaleString('en-IN', { month: 'short', year: '2-digit' })}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-700 text-sm">{ev.title}</h3>
+                    {ev.venue && <p className="text-slate-400 text-xs">{ev.venue}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {events.length === 0 && (
+          <div className="bg-[#f0f4ff] border border-[#c8d9f0] rounded-2xl p-6 text-center">
+            <p className="text-[#002664] font-semibold mb-1">Weekly Meetings</p>
+            <p className="text-[#5e717d] text-sm">The club meets weekly. Contact us for the venue and time.</p>
+            <Link href="/contact" className="inline-block mt-3 text-[#002664] text-sm font-bold hover:underline no-underline">Contact the club →</Link>
+          </div>
+        )}
       </div>
-
-      <div className="grid sm:grid-cols-2 gap-3.5 mt-5">
-        <div className="bg-white border border-[#dfe4e8] rounded-[18px] p-5">
-          <h3 className="text-[#17458f] text-lg font-bold m-0 mb-2">Upcoming events</h3>
-          <p className="text-sm m-0 mb-2">No events are published for 2025-26 yet. <span className="bg-[#fff6e0] border border-dashed border-[#f7a81b] rounded px-2 py-0.5 text-xs text-[#6b4a00] font-sans">Dates to be confirmed</span>.</p>
-          <Link href="/calendar" className="text-[#0067c8] text-sm hover:underline">Open the calendar →</Link>
-        </div>
-        <div className="bg-white border border-[#dfe4e8] rounded-[18px] p-5">
-          <h3 className="text-[#17458f] text-lg font-bold m-0 mb-2">Vision newsletter</h3>
-          <p className="text-sm m-0 mb-2">The existing club site mentions a Vision newsletter. Issues will be linked here once the club provides them.</p>
-          <a href={externalLinks.existing} target="_blank" rel="noreferrer" className="text-[#0067c8] text-sm hover:underline">Visit rcnv.in →</a>
-        </div>
-      </div>
-
-      <h2 className="text-[#17458f] text-2xl font-bold mt-9 mb-3.5">Past events, 2025-26</h2>
-      {pastEvents.length > 0 ? (
-        <div className="bg-white border border-[#dfe4e8] rounded-[18px] p-5">
-          <ul className="list-none p-0 m-0">
-            {pastEvents.map((p, i) => (
-              <li key={p.id} className={`py-2.5 ${i < pastEvents.length - 1 ? 'border-b border-[#dfe4e8]' : ''}`}>
-                <b>{p.date}</b> — {p.title}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <div className="bg-[#eaf4fb] border-l-4 border-[#019fcb] rounded-lg px-4 py-3 font-sans text-[15px]">
-          No past events published for 2025-26.
-        </div>
-      )}
-
-      <h2 className="text-[#17458f] text-2xl font-bold mt-9 mb-3.5">Model United Nations Assembly</h2>
-      <p className="text-[#3a4654]">The existing club site mentions this youth event in District 3030. Dates and the club's role: <span className="bg-[#fff6e0] border border-dashed border-[#f7a81b] rounded px-2 py-0.5 text-xs text-[#6b4a00] font-sans">To be confirmed by the club</span>.</p>
     </PublicShell>
   );
 }

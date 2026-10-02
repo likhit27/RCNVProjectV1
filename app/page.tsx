@@ -1,140 +1,231 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { PublicShell } from '@/app/components/public/PublicShell';
-import { projects, externalLinks } from '@/lib/rcnv-public-data';
+import { getWebProjects, getUpcomingWebEvents, getSiteCounters, getActiveBanners, getPageContent } from '@/lib/cms-db';
+import { projects as fallbackProjects } from '@/lib/rcnv-public-data';
 
-function ProjectCard({ p }: { p: (typeof projects)[number] }) {
-  return (
-    <article className="bg-white border border-[#dfe4e8] rounded-[18px] p-5 flex flex-col gap-2">
-      <span className="inline-block bg-[#f3f6fa] text-[#17458f] text-xs font-bold px-3 py-1 rounded-full self-start">{p.avenue}</span>
-      <h3 className="text-[#17458f] text-lg font-bold m-0">{p.title}</h3>
-      <p className="text-[#5e717d] text-sm m-0">{p.date}</p>
-      <p className="text-[#1f2a37] text-base m-0 flex-1">{p.summary}</p>
-      {p.impact.length > 0 && (
-        <div className="flex gap-5 flex-wrap mt-1">
-          {p.impact.map(i => (
-            <div key={i.label}>
-              <b className="block text-2xl font-bold text-[#c10042] font-sans leading-tight">{i.value}</b>
-              <span className="text-[#5e717d] text-xs font-sans">{i.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      <a href={p.source} target="_blank" rel="noreferrer" className="text-[#0067c8] text-sm mt-1 hover:underline">
-        Read the news report
-      </a>
-    </article>
-  );
+type DisplayProject = { id: string; title: string; avenue: string; description: string; imageUrl: string | null; impact: { value: string; label: string }[] };
+
+const DEFAULT_COUNTERS = [
+  { label: 'Members', value: '100+' },
+  { label: 'Projects', value: '25+' },
+  { label: 'Beneficiaries', value: '1,000+' },
+  { label: 'Man Hours', value: '5,000+' },
+];
+
+async function getData() {
+  try {
+    const [dbProjects, events, counters, banners, heroTitle, heroSub] = await Promise.all([
+      getWebProjects(true), getUpcomingWebEvents(), getSiteCounters(),
+      getActiveBanners(), getPageContent('home.hero.title'), getPageContent('home.hero.subtitle'),
+    ]);
+    return { dbProjects, events, counters, banners, heroTitle, heroSub };
+  } catch {
+    return { dbProjects: [], events: [], counters: [], banners: [], heroTitle: null, heroSub: null };
+  }
 }
 
-const verifiedProjects = projects.filter(p => p.year === '2025-26');
+export default async function HomePage() {
+  const { dbProjects, events, counters, banners, heroTitle, heroSub } = await getData();
 
-export default function HomePage() {
+  const projects: DisplayProject[] = dbProjects.length > 0
+    ? dbProjects.map(p => ({
+        id: p.id, title: p.title, avenue: p.avenue, description: p.description,
+        imageUrl: p.imageUrl,
+        impact: Array.isArray(p.impact) ? p.impact as { value: string; label: string }[] : [],
+      }))
+    : fallbackProjects.map(p => ({
+        id: p.id, title: p.title, avenue: p.avenue, description: p.summary,
+        imageUrl: null, impact: p.impact,
+      }));
+
+  const displayCounters = counters.length > 0 ? counters : DEFAULT_COUNTERS;
+  const heroBanner = banners[0];
+
+  const title = heroTitle ?? 'Be a Gift to the World';
+  const subtitle = heroSub ?? 'We are neighbours, professionals and friends who take action on health, the environment and opportunity in Nagpur.';
+
   return (
     <PublicShell>
-      {/* Hero */}
-      <section className="grid md:grid-cols-[1.3fr_1fr] gap-7 items-center bg-[#17458f] text-white rounded-3xl px-10 py-10 mt-6 max-sm:px-6 max-sm:py-8">
-        <div>
-          <p className="text-[#f7a81b] uppercase tracking-widest text-xs font-bold m-0 mb-2">Rotary Club of Nagpur Vision</p>
-          <h1 className="text-white font-bold leading-tight m-0 mb-3" style={{ fontSize: 'clamp(32px,6vw,52px)' }}>
-            People of Action in Nagpur
+      {/* ── Hero ──────────────────────────────────────────────────────────────── */}
+      <section className="relative bg-[#002664] overflow-hidden">
+        {/* Background hero image */}
+        {heroBanner ? (
+          <div className="absolute inset-0">
+            <Image src={heroBanner.imageUrl} alt={heroBanner.title} fill className="object-cover opacity-20" priority />
+          </div>
+        ) : (
+          <div className="absolute inset-0">
+            <Image src="/hero.jpg" alt="RCNV volunteers" fill className="object-cover opacity-20" priority />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-4 pt-20 pb-12 text-center text-white">
+          <p className="text-[#F7A81B] uppercase tracking-[0.2em] text-xs font-bold mb-4">Rotary Club of Nagpur Vision · District 3030</p>
+          <h1
+            className="font-black leading-tight mb-6 mx-auto max-w-3xl"
+            style={{ fontSize: 'clamp(36px, 7vw, 68px)', lineHeight: 1.1 }}
+          >
+            {title}
           </h1>
-          <p className="text-[#e6eefb] text-lg m-0 mb-6">
-            We are neighbours, professionals and friends who take action on health, the environment and opportunity in our city.
-          </p>
-          <div className="flex gap-3 flex-wrap">
-            <Link
-              href="/get-involved"
-              className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full font-bold text-sm bg-[#f7a81b] text-[#1f2a37] border-2 border-[#f7a81b] hover:bg-white hover:text-[#17458f] transition-colors no-underline"
-            >
+          <p className="text-[#c8d9f0] text-lg max-w-2xl mx-auto mb-8 leading-relaxed">{subtitle}</p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Link href="/get-involved"
+              className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-[#F7A81B] text-[#1f2a37] font-bold text-sm hover:bg-[#e09810] transition-colors no-underline">
               Join or Volunteer
             </Link>
-            <Link
-              href="/projects"
-              className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full font-bold text-sm bg-transparent text-white border-2 border-white hover:bg-white hover:text-[#17458f] transition-colors no-underline"
-            >
+            <Link href="/projects"
+              className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-transparent text-white border-2 border-white font-bold text-sm hover:bg-white hover:text-[#002664] transition-colors no-underline">
               See Our Projects
             </Link>
           </div>
         </div>
-        <figure className="m-0 max-md:hidden">
-          <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-            <Image
-              src="/hero.jpg"
-              alt="Volunteers at a RCNV community event"
-              fill
-              className="object-cover"
-              priority
-            />
+
+        {/* ── Counters strip ──────────────────────────────────────────────────── */}
+        <div className="relative bg-[#001d4f]/80 backdrop-blur-sm border-t border-white/10">
+          <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 md:divide-x md:divide-white/10">
+            {displayCounters.map((c) => (
+              <div key={c.label} className="text-center px-4">
+                <p
+                  className="font-black leading-none mb-2"
+                  style={{
+                    fontSize: 'clamp(40px, 7vw, 64px)',
+                    background: 'linear-gradient(to bottom, #ffffff, rgba(255,255,255,0.4))',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {c.value}
+                </p>
+                <p className="text-[#94b8e0] uppercase tracking-widest text-xs font-semibold">{c.label}</p>
+              </div>
+            ))}
           </div>
-          <figcaption className="text-[#cfdcf2] text-xs mt-2 font-sans">
-            Illustration. Real club photos to be added with member permission.
-          </figcaption>
-        </figure>
+        </div>
       </section>
 
-      {/* Impact stats */}
-      <section aria-label="Impact highlights" className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-5">
-        {[
-          { value: '20', label: 'units of blood collected, 4 July 2025' },
-          { value: '~300', label: 'students screened, 12 November 2025' },
-          { value: '~60', label: 'girls at hygiene session' },
-          { value: String(verifiedProjects.length), label: 'projects reported in 2025-26 news' },
-        ].map(s => (
-          <div key={s.label} className="bg-[#f3f6fa] rounded-[18px] p-5">
-            <b className="block text-[40px] font-bold text-[#17458f] leading-tight font-sans">{s.value}</b>
-            <span className="text-[#5e717d] text-sm font-sans">{s.label}</span>
+      {/* ── Latest Projects ───────────────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 py-16">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <p className="text-[#F7A81B] uppercase tracking-widest text-xs font-bold mb-1">What We Do</p>
+            <h2 className="text-3xl font-bold text-[#002664]">Our Projects</h2>
           </div>
-        ))}
-      </section>
-      <p className="text-[#5e717d] text-xs mt-2">Figures from public news reports of 2025-26 projects.</p>
-
-      {/* Latest projects */}
-      <h2 className="text-[#17458f] text-2xl font-bold mt-9 mb-3.5">Latest from the club</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-        {verifiedProjects.map(p => <ProjectCard key={p.id} p={p} />)}
-      </div>
-
-      {/* Quick links */}
-      <h2 className="text-[#17458f] text-2xl font-bold mt-9 mb-3.5">Quick links</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-        {[
-          { href: '/about', title: 'About the club', desc: 'Who we are, when and where we meet.' },
-          { href: '/directors', title: 'Directors', desc: 'The board and avenue directors.' },
-          { href: '/events', title: 'Events & newsletters', desc: 'Speakers, service days and the Vision newsletter.' },
-          { href: '/get-involved', title: 'Get involved', desc: 'Visit a meeting, volunteer or partner with us.', accent: true },
-        ].map(tile => (
-          <Link
-            key={tile.href}
-            href={tile.href}
-            className={`block rounded-[18px] border p-5 no-underline transition-colors hover:border-[#f7a81b] ${
-              tile.accent ? 'bg-[#f7a81b] border-[#f7a81b]' : 'bg-white border-[#dfe4e8]'
-            }`}
-          >
-            <h3 className={`text-lg font-bold m-0 mb-1 ${tile.accent ? 'text-[#1f2a37]' : 'text-[#17458f]'}`}>{tile.title}</h3>
-            <p className={`text-sm m-0 ${tile.accent ? 'text-[#1f2a37]/80' : 'text-[#5e717d]'}`}>{tile.desc}</p>
+          <Link href="/projects" className="text-[#002664] text-sm font-semibold hover:underline no-underline">
+            View all →
           </Link>
-        ))}
-        <a href={externalLinks.district} target="_blank" rel="noreferrer"
-          className="block rounded-[18px] border border-[#dfe4e8] bg-white p-5 no-underline hover:border-[#f7a81b] transition-colors">
-          <h3 className="text-[#17458f] text-lg font-bold m-0 mb-1">Rotary District 3030</h3>
-          <p className="text-[#5e717d] text-sm m-0">Our district website (opens in a new tab).</p>
-        </a>
-        <a href={externalLinks.ri} target="_blank" rel="noreferrer"
-          className="block rounded-[18px] border border-[#dfe4e8] bg-white p-5 no-underline hover:border-[#f7a81b] transition-colors">
-          <h3 className="text-[#17458f] text-lg font-bold m-0 mb-1">Rotary International</h3>
-          <p className="text-[#5e717d] text-sm m-0">Rotary.org and My Rotary.</p>
-        </a>
-      </div>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.slice(0, 3).map((p) => (
+            <article key={p.id} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+              {p.imageUrl ? (
+                <div className="relative h-44">
+                  <Image src={p.imageUrl} alt={p.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
+              ) : (
+                <div className="h-44 bg-gradient-to-br from-[#002664] to-[#0a3a8a] flex items-center justify-center">
+                  <span className="text-white/20 text-6xl font-black">R</span>
+                </div>
+              )}
+              <div className="p-5">
+                <span className="inline-block bg-[#f0f4ff] text-[#002664] text-xs font-bold px-3 py-1 rounded-full mb-3">{p.avenue}</span>
+                <h3 className="text-[#002664] font-bold text-base mb-2 leading-snug">{p.title}</h3>
+                <p className="text-[#5e717d] text-sm mb-3 line-clamp-2">{p.description}</p>
+                {p.impact.length > 0 && (
+                  <div className="flex gap-4 border-t border-slate-100 pt-3">
+                    {p.impact.slice(0, 2).map(i => (
+                      <div key={i.label}>
+                        <b className="block text-lg font-black text-[#c10042]">{i.value}</b>
+                        <span className="text-[#5e717d] text-xs">{i.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
-      {/* Next meeting */}
-      <h2 className="text-[#17458f] text-2xl font-bold mt-9 mb-3.5">Next meeting</h2>
-      <div className="bg-white border border-[#dfe4e8] rounded-[18px] p-5">
-        <p className="m-0"><b>Day, time and venue:</b> <span className="bg-[#fff6e0] border border-dashed border-[#f7a81b] rounded px-2 py-0.5 text-sm text-[#6b4a00] font-sans">To be confirmed by the club</span></p>
-        <p className="text-sm text-[#5e717d] mt-2 mb-0">Visitors are welcome once the club confirms its meeting details.{' '}
-          <Link href="/contact" className="text-[#0067c8] hover:underline">Contact us to confirm.</Link>
-        </p>
-      </div>
+      {/* ── Upcoming Events ──────────────────────────────────────────────────── */}
+      <section className="bg-[#f8fafc] py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-[#F7A81B] uppercase tracking-widest text-xs font-bold mb-1">Join Us</p>
+              <h2 className="text-3xl font-bold text-[#002664]">Upcoming Events</h2>
+            </div>
+            <Link href="/events" className="text-[#002664] text-sm font-semibold hover:underline no-underline">View all →</Link>
+          </div>
+          {events.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {events.map(ev => (
+                <div key={ev.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-[#002664] text-white rounded-xl px-3 py-2 text-center flex-shrink-0 min-w-[50px]">
+                      <p className="text-xl font-black leading-none">{new Date(ev.date).getDate()}</p>
+                      <p className="text-[10px] uppercase tracking-wider opacity-80">{new Date(ev.date).toLocaleString('en-IN', { month: 'short' })}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#002664] text-sm leading-snug mb-1">{ev.title}</h3>
+                      {ev.venue && <p className="text-[#5e717d] text-xs">📍 {ev.venue}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center">
+              <p className="text-slate-400 mb-2">No upcoming events published yet.</p>
+              <p className="text-slate-400 text-sm">Check back soon or <Link href="/contact" className="text-[#002664] hover:underline">contact the club</Link>.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Service Avenues ──────────────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 py-16">
+        <div className="text-center mb-10">
+          <p className="text-[#F7A81B] uppercase tracking-widest text-xs font-bold mb-1">How We Serve</p>
+          <h2 className="text-3xl font-bold text-[#002664]">Five Avenues of Service</h2>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            { name: 'Club Service', icon: '🤝', desc: 'Fellowship, meetings and membership' },
+            { name: 'Vocational Service', icon: '💼', desc: 'Ethics and professional excellence' },
+            { name: 'Community Service', icon: '🌿', desc: 'Health, environment and education' },
+            { name: 'International Service', icon: '🌍', desc: 'Global partnerships and The Foundation' },
+            { name: 'Youth Service', icon: '🎓', desc: 'Developing the next generation' },
+          ].map(a => (
+            <div key={a.name} className="bg-white border border-slate-100 rounded-2xl p-5 text-center shadow-sm hover:border-[#F7A81B] transition-colors">
+              <span className="text-3xl mb-3 block">{a.icon}</span>
+              <h3 className="text-[#002664] font-bold text-sm mb-1">{a.name}</h3>
+              <p className="text-slate-500 text-xs">{a.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Get Involved CTA ────────────────────────────────────────────────── */}
+      <section className="bg-[#002664] py-16">
+        <div className="max-w-3xl mx-auto px-4 text-center text-white">
+          <p className="text-[#F7A81B] uppercase tracking-widest text-xs font-bold mb-3">Take Action</p>
+          <h2 className="text-4xl font-black mb-4">Become a Person of Action</h2>
+          <p className="text-[#c8d9f0] mb-8 text-lg">Bring a skill, an hour, or an idea. Start with a meeting and see the work for yourself.</p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Link href="/get-involved"
+              className="inline-flex items-center h-12 px-8 rounded-full bg-[#F7A81B] text-[#1f2a37] font-bold text-sm hover:bg-[#e09810] transition-colors no-underline">
+              Join or Volunteer
+            </Link>
+            <Link href="/contact"
+              className="inline-flex items-center h-12 px-8 rounded-full bg-transparent text-white border-2 border-white font-bold text-sm hover:bg-white hover:text-[#002664] transition-colors no-underline">
+              Contact Us
+            </Link>
+          </div>
+        </div>
+      </section>
     </PublicShell>
   );
 }
