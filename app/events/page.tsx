@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { PublicShell } from '@/app/components/public/PublicShell';
 import { getWebEvents } from '@/lib/cms-db';
